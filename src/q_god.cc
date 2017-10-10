@@ -3,15 +3,18 @@
 #include "cave_type.hpp"
 #include "dungeon_flag.hpp"
 #include "dungeon_info_type.hpp"
+#include "feature_flag.hpp"
 #include "feature_type.hpp"
+#include "game.hpp"
 #include "hook_chardump_in.hpp"
 #include "hook_get_in.hpp"
 #include "hook_enter_dungeon_in.hpp"
 #include "hook_player_level_in.hpp"
 #include "hooks.hpp"
+#include "monster_race_flag.hpp"
+#include "monster_spell_flag.hpp"
 #include "object2.hpp"
 #include "player_type.hpp"
-#include "quark.hpp"
 #include "skill_type.hpp"
 #include "tables.hpp"
 #include "util.hpp"
@@ -21,7 +24,7 @@
 #include "z-rand.hpp"
 
 #include <assert.h>
-#include <format.h>
+#include <fmt/format.h>
 
 #define cquest (quest[QUEST_GOD])
 #define cquest_quests_given (cquest.data[0])
@@ -290,12 +293,15 @@ std::string quest_god_describe()
 
 static void quest_god_place_rand_dung()
 {
+	auto &wilderness = game->wilderness;
+	auto const &wf_info = game->edit_data.wf_info;
+
 	int x = -1, y = -1, tries;
 
 	/* erase old dungeon */
 	if (cquest_quests_given > 0)
 	{
-		wild_map[cquest_dung_y][cquest_dung_x].entrance = 0;
+		wilderness(cquest_dung_x, cquest_dung_y).entrance = 0;
 		
 		/* erase old recall level */
 		max_dlv[DUNGEON_GOD] = 0;
@@ -305,19 +311,17 @@ static void quest_god_place_rand_dung()
 	tries = 1000;
 	while (tries > 0)
 	{
-		wilderness_map *w_ptr = NULL;
-		wilderness_type_info *wf_ptr = NULL;
 		tries = tries - 1;
 
 		/* get grid coordinates, within a range which prevents
 		 * dungeon being generated at the very edge of the
 		 * wilderness (would crash the game). */
-		x = rand_range(1, max_wild_x-2);
-		y = rand_range(1, max_wild_y-2);
+		x = rand_range(1, wilderness.width()-2);
+		y = rand_range(1, wilderness.height()-2);
 
 		/* Is there a town/dungeon/potentially impassable feature there, ? */
-		w_ptr = &wild_map[y][x];
-		wf_ptr = &wf_info[w_ptr->feat];
+		wilderness_map const *w_ptr = &wilderness(x, y);
+		wilderness_type_info const *wf_ptr = &wf_info[w_ptr->feat];
 
 		if ((w_ptr->entrance != 0) ||
 		    (wf_ptr->entrance != 0) ||
@@ -348,7 +352,7 @@ static void quest_god_place_rand_dung()
 	}
 
 	/* create god dungeon in that place */
-	wild_map[y][x].entrance = 1000 + DUNGEON_GOD;
+	wilderness(x, y).entrance = 1000 + DUNGEON_GOD;
 
 	/* set quest variables */
 	cquest_dung_x = x;
@@ -357,6 +361,8 @@ static void quest_god_place_rand_dung()
 
 static void quest_god_generate_relic()
 {
+	auto const &f_info = game->edit_data.f_info;
+
 	int tries = 1000, x = -1, y = -1;
 	object_type relic;
 
@@ -374,9 +380,8 @@ static void quest_god_generate_relic()
 		c_ptr = &cave[y][x];
 
 		/* are the coordinates on a floor, not on a permanent feature (eg stairs), and not on a trap ? */
-		if ((f_info[c_ptr->feat].flags1 & FF1_FLOOR) &&
-		    (!(f_info[c_ptr->feat].flags1 & FF1_PERMANENT)) &&
-		    (c_ptr->t_idx == 0))
+		if ((f_info[c_ptr->feat].flags & FF_FLOOR) &&
+		    (!(f_info[c_ptr->feat].flags & FF_PERMANENT)))
 		{
 			break;
 		}
@@ -386,7 +391,7 @@ static void quest_god_generate_relic()
 	object_prep(&relic, lookup_kind(TV_JUNK, get_relic_num()));
 
 	/* inscribe it to prevent automatizer 'accidents' */
-	relic.note = quark_add("quest");
+	relic.inscription = "quest";
 
 	/* If no safe co-ords were found, put it in the players backpack */
 	if (tries == 0)
@@ -419,6 +424,8 @@ static void quest_god_generate_relic()
 
 static void quest_god_set_god_dungeon_attributes_eru()
 {
+	auto &d_info = game->edit_data.d_info;
+
 	/* The Eru temple is based on Meneltarma. */
 
 	/* W: Not too many monsters (they'll be tough though, with big
@@ -468,17 +475,19 @@ static void quest_god_set_god_dungeon_attributes_eru()
 	d_info[DUNGEON_GOD].rules[0].percent = 50;
 
 	/* M: We want evil or flying characters */
-	d_info[DUNGEON_GOD].rules[0].mflags3 = RF3_EVIL;
+	d_info[DUNGEON_GOD].rules[0].mflags = RF_EVIL;
 
 	d_info[DUNGEON_GOD].rules[1].mode = 3;
 	d_info[DUNGEON_GOD].rules[1].percent = 50;
 
 	/* M: We want evil or flying characters */
-	d_info[DUNGEON_GOD].rules[1].mflags7 = RF7_CAN_FLY;
+	d_info[DUNGEON_GOD].rules[1].mflags = RF_CAN_FLY;
 }
 
 static void quest_god_set_god_dungeon_attributes_manwe()
 {
+	auto &d_info = game->edit_data.d_info;
+
 	/* Manwe's lost temple is high in the clouds */
 
 	/* W: Has average number of monsters. */
@@ -532,15 +541,17 @@ static void quest_god_set_god_dungeon_attributes_manwe()
 
 	/* M: We want air(poison-type) or flying characters. Orcs
 	 * too. They would have ransacked his elf-loving temple :) */
-	d_info[DUNGEON_GOD].rules[0].mflags2 = RF2_INVISIBLE;
-	d_info[DUNGEON_GOD].rules[1].mflags3 = RF3_ORC | RF3_IM_POIS;
-	d_info[DUNGEON_GOD].rules[2].mflags4 = RF4_BR_POIS | RF4_BR_GRAV;
-	d_info[DUNGEON_GOD].rules[3].mflags5 = RF5_BA_POIS;
-	d_info[DUNGEON_GOD].rules[4].mflags7 = RF7_CAN_FLY;
+	d_info[DUNGEON_GOD].rules[0].mflags = RF_INVISIBLE;
+	d_info[DUNGEON_GOD].rules[1].mflags = RF_ORC | RF_IM_POIS;
+	d_info[DUNGEON_GOD].rules[2].mspells = SF_BR_POIS | SF_BR_GRAV;
+	d_info[DUNGEON_GOD].rules[3].mspells = SF_BA_POIS;
+	d_info[DUNGEON_GOD].rules[4].mflags = RF_CAN_FLY;
 }
 
 static void quest_god_set_god_dungeon_attributes_tulkas()
 {
+	auto &d_info = game->edit_data.d_info;
+
 	/* Tulkas dungeon is quite normal, possibly a bit boring to be
 	 * honest. Maybe I should add something radical to it.  'The
 	 * house of Tulkas in the midmost of Valmar was a house of
@@ -581,11 +592,13 @@ static void quest_god_set_god_dungeon_attributes_tulkas()
 	d_info[DUNGEON_GOD].rules[0].percent = 100;
 
 	/* M: plenty demons please */
-	d_info[DUNGEON_GOD].rules[0].mflags3 = RF3_DEMON | RF3_EVIL;
+	d_info[DUNGEON_GOD].rules[0].mflags = RF_DEMON | RF_EVIL;
 }
 
 static void quest_god_set_god_dungeon_attributes_melkor()
 {
+	auto &d_info = game->edit_data.d_info;
+
 	/* Melkors dungeon will be dark, fiery and stuff */
 
 	/* Many many monsters! (but prob ADJUST_LEVEL_1_2) */
@@ -634,11 +647,13 @@ static void quest_god_set_god_dungeon_attributes_melkor()
 	d_info[DUNGEON_GOD].rules[1].percent = 20;
 
 	/* M: */
-	d_info[DUNGEON_GOD].rules[1].mflags3 = RF3_GOOD;
+	d_info[DUNGEON_GOD].rules[1].mflags = RF_GOOD;
 }
 
 static void quest_god_set_god_dungeon_attributes_yavanna()
 {
+	auto &d_info = game->edit_data.d_info;
+
 	/* Yavannas dungeon will be very natural, tress and stuff. */
 
 	d_info[DUNGEON_GOD].min_m_alloc_level = 22;
@@ -684,12 +699,14 @@ static void quest_god_set_god_dungeon_attributes_yavanna()
 	d_info[DUNGEON_GOD].rules[0].percent = 100;
 
 	/* M: */
-	d_info[DUNGEON_GOD].rules[0].mflags3 =
-		RF3_DEMON | RF3_UNDEAD | RF3_NONLIVING;
+	d_info[DUNGEON_GOD].rules[0].mflags =
+		RF_DEMON | RF_UNDEAD | RF_NONLIVING;
 }
 
 static void quest_god_set_god_dungeon_attributes_aule()
 {
+	auto &d_info = game->edit_data.d_info;
+
 	d_info[DUNGEON_GOD].min_m_alloc_level = 24;
 	d_info[DUNGEON_GOD].max_m_alloc_chance = 80;
 
@@ -732,6 +749,8 @@ static void quest_god_set_god_dungeon_attributes_aule()
 
 static void quest_god_set_god_dungeon_attributes_varda()
 {
+	auto &d_info = game->edit_data.d_info;
+
 	/* Varda lives with Manwe, so high in the clouds */
 
 	/* W: Has average number of monsters. */
@@ -782,15 +801,17 @@ static void quest_god_set_god_dungeon_attributes_varda()
 	d_info[DUNGEON_GOD].rules[4].percent = 20;
 
 	/* M: We want air(poison-type) or flying characters. Orcs too. */
-	d_info[DUNGEON_GOD].rules[0].mflags2 = RF2_INVISIBLE;
-	d_info[DUNGEON_GOD].rules[1].mflags3 = RF3_ORC | RF3_IM_POIS;
-	d_info[DUNGEON_GOD].rules[2].mflags4 = RF4_BR_POIS | RF4_BR_GRAV;
-	d_info[DUNGEON_GOD].rules[3].mflags5 = RF5_BA_POIS;
-	d_info[DUNGEON_GOD].rules[4].mflags7 = RF7_CAN_FLY;
+	d_info[DUNGEON_GOD].rules[0].mflags = RF_INVISIBLE;
+	d_info[DUNGEON_GOD].rules[1].mflags = RF_ORC | RF_IM_POIS;
+	d_info[DUNGEON_GOD].rules[2].mspells = SF_BR_POIS | SF_BR_GRAV;
+	d_info[DUNGEON_GOD].rules[3].mspells = SF_BA_POIS;
+	d_info[DUNGEON_GOD].rules[4].mflags = RF_CAN_FLY;
 }
 
 static void quest_god_set_god_dungeon_attributes_ulmo()
 {
+	auto &d_info = game->edit_data.d_info;
+
 	/* Ulmo dungeon is basically Tulkas, except with acquatic creatures. */
 
 	/* W: but with lots of monsters */
@@ -829,13 +850,15 @@ static void quest_god_set_god_dungeon_attributes_ulmo()
 	d_info[DUNGEON_GOD].rules[2].percent = 30;
 
 	/* M: Aquatic creatures only. */
-	d_info[DUNGEON_GOD].rules[0].mflags3 = RF7_CAN_FLY;
-	d_info[DUNGEON_GOD].rules[1].mflags3 = RF7_AQUATIC;
-	d_info[DUNGEON_GOD].rules[2].mflags3 = RF3_RES_WATE;
+	d_info[DUNGEON_GOD].rules[0].mflags = RF_CAN_FLY;
+	d_info[DUNGEON_GOD].rules[1].mflags = RF_AQUATIC;
+	d_info[DUNGEON_GOD].rules[2].mflags = RF_RES_WATE;
 }
 
 static void quest_god_set_god_dungeon_attributes_mandos()
 {
+	auto &d_info = game->edit_data.d_info;
+
 	/* Mandos dungeon is basically Tulkas, except with undead. */
 
 	/* W: but with lots of monsters */
@@ -875,16 +898,16 @@ static void quest_god_set_god_dungeon_attributes_mandos()
 	d_info[DUNGEON_GOD].rules[0].r_char[2] = '\0';
 	d_info[DUNGEON_GOD].rules[0].r_char[3] = '\0';
 	d_info[DUNGEON_GOD].rules[0].r_char[4] = '\0';
-	d_info[DUNGEON_GOD].rules[0].mflags3 = RF3_UNDEAD | RF3_EVIL;
+	d_info[DUNGEON_GOD].rules[0].mflags = RF_UNDEAD | RF_EVIL;
 }
 
-static bool_ quest_god_level_end_gen_hook(void *, void *, void *)
+static bool quest_god_level_end_gen_hook(void *, void *, void *)
 {
 	/* Check for dungeon */
 	if ((dungeon_type != DUNGEON_GOD) ||
 	    (cquest.status == QUEST_STATUS_UNTAKEN))
 	{
-		return FALSE;
+		return false;
 	}
 
 	/* if the relic has been created at this point, then it was
@@ -932,17 +955,17 @@ static bool_ quest_god_level_end_gen_hook(void *, void *, void *)
 		}
 	}
 
-	return FALSE;
+	return false;
 }
 
-static bool_ quest_god_player_level_hook(void *, void *in_, void *)
+static bool quest_god_player_level_hook(void *, void *in_, void *)
 {
 	struct hook_player_level_in *in = static_cast<struct hook_player_level_in *>(in_);
 	s32b gained = in->gained_levels;
 
 	if (gained <= 0)
 	{
-		return FALSE;
+		return false;
 	}
 
 	/* check player is worshipping a god, not already on a god quest. */
@@ -961,7 +984,7 @@ static bool_ quest_god_player_level_hook(void *, void *in_, void *)
 		{
 			cquest_dun_minplev = p_ptr->lev;
 		}
-		return FALSE;
+		return false;
 	}
 	else
 	{
@@ -994,11 +1017,13 @@ static bool_ quest_god_player_level_hook(void *, void *in_, void *)
 		cquest_dun_maxdepth = cquest_dun_mindepth + 4;
 	}
 
-	return FALSE;
+	return false;
 }
 
-static bool_ quest_god_get_hook(void *, void *in_, void *)
+static bool quest_god_get_hook(void *, void *in_, void *)
 {
+	auto &s_info = game->s_info;
+
 	hook_get_in *in = static_cast<hook_get_in *>(in_);
 
 	s32b item = -in->o_idx; /* Note the negation */
@@ -1046,13 +1071,13 @@ static bool_ quest_god_get_hook(void *, void *in_, void *)
 
 		/* Prevent further processing of 'take' action; we've
 		   destroyed the item. */
-		return TRUE;
+		return true;
 	}
 
-	return FALSE;
+	return false;
 }
 
-static bool_ quest_god_char_dump_hook(void *, void *in_, void *)
+static bool quest_god_char_dump_hook(void *, void *in_, void *)
 {
 	struct hook_chardump_in *in = static_cast<struct hook_chardump_in *>(in_);
 	FILE *f = in->file;
@@ -1085,11 +1110,13 @@ static bool_ quest_god_char_dump_hook(void *, void *in_, void *)
 		fprintf(f, "\n You found %s of the relic pieces%s.", relics_text, append_text);
 	}
 
-	return FALSE;
+	return false;
 }
 
 static void set_god_dungeon_attributes()
 {
+	auto &d_info = game->edit_data.d_info;
+
 	/* dungeon properties altered according to which god player is worshipping, */
 	if (p_ptr->pgod == GOD_ERU)
 	{
@@ -1135,7 +1162,7 @@ static void set_god_dungeon_attributes()
 	/* W: All dungeons are 5 levels deep, and created at 2/3 of
 	 * the player clvl when the quest is given */
 	{
-		dungeon_info_type *d_ptr = &d_info[DUNGEON_GOD];
+		auto d_ptr = &d_info[DUNGEON_GOD];
 		d_ptr->mindepth = cquest_dun_mindepth;
 		d_ptr->maxdepth = cquest_dun_maxdepth;
 		d_ptr->min_plev = cquest_dun_minplev;
@@ -1154,26 +1181,26 @@ static void quest_god_dungeon_setup(int d_idx)
 	set_god_dungeon_attributes();
 }
 
-static bool_ quest_god_enter_dungeon_hook(void *, void *in_, void *)
+static bool quest_god_enter_dungeon_hook(void *, void *in_, void *)
 {
 	struct hook_enter_dungeon_in *in = static_cast<struct hook_enter_dungeon_in *>(in_);
 	quest_god_dungeon_setup(in->d_idx);
-	return FALSE;
+	return false;
 }
 
-static bool_ quest_god_gen_level_begin_hook(void *, void *, void *)
+static bool quest_god_gen_level_begin_hook(void *, void *, void *)
 {
 	quest_god_dungeon_setup(dungeon_type);
-	return FALSE;
+	return false;
 }
 
-static bool_ quest_god_stair_hook(void *, void *, void *)
+static bool quest_god_stair_hook(void *, void *, void *)
 {
 	quest_god_dungeon_setup(dungeon_type);
-	return FALSE;
+	return false;
 }
 
-static bool_ quest_god_birth_objects_hook(void *, void *, void *)
+static bool quest_god_birth_objects_hook(void *, void *, void *)
 {
 	cquest_quests_given = 0;
 	cquest_relics_found = 0;
@@ -1183,10 +1210,10 @@ static bool_ quest_god_birth_objects_hook(void *, void *, void *)
 	cquest_relic_gen_tries = 0;
 	cquest_relic_generated = FALSE;
 
-	return FALSE;
+	return false;
 }
 
-bool_ quest_god_init_hook(int q)
+void quest_god_init_hook()
 {
 	/* Only need hooks if the quest is unfinished. */
 	if ((cquest.status >= QUEST_STATUS_UNTAKEN) &&
@@ -1204,6 +1231,4 @@ bool_ quest_god_init_hook(int q)
 	/* Need this to re-initialize at birth; the quest data is
 	 * zeroed which isn't quite right. */
 	add_hook_new(HOOK_BIRTH_OBJECTS, quest_god_birth_objects_hook, "q_god_birth_objects", NULL);
-	
-	return FALSE;
 }

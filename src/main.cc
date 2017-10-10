@@ -11,6 +11,7 @@
 #include "birth.hpp"
 #include "dungeon.h"
 #include "files.hpp"
+#include "game.hpp"
 #include "init2.h"
 #include "modules.hpp"
 #include "util.h"
@@ -46,7 +47,7 @@ static void quit_hook(cptr s)
  * home directory or try to create it if it doesn't exist.
  * Returns FALSE if all the attempts fail.
  */
-static void init_save_dir(void)
+static void init_save_dir()
 {
 	char dirpath[1024];
 	char versionpath[1024];
@@ -74,16 +75,6 @@ static void init_save_dir(void)
 		quit_fmt("Cannot create directory '%s'", savepath);
 	}
 }
-
-static void init_player_name()
-{
-	/* Get the user id (?) */
-	int player_uid = getuid();
-
-	/* Acquire the "user name" as a default player name */
-	user_name(player_name, player_uid);
-}
-
 
 /*
  * Initialize and verify the file paths, and the score file.
@@ -131,11 +122,14 @@ int main_real(int argc, char *argv[], char const *platform_sys, int (*init_platf
 
 	bool_ args = TRUE;
 
+	// Initialize game structure
+	game = new Game();
+
 	/* Get the file paths */
 	init_file_paths_with_env();
 
 	/* Initialize the player name */
-	init_player_name();
+	game->player_name = user_name();
 
 	/* Make sure save directory exists */
 	init_save_dir();
@@ -175,8 +169,8 @@ int main_real(int argc, char *argv[], char const *platform_sys, int (*init_platf
 		case 'U':
 			{
 				if (!argv[i][2]) goto usage;
-				strcpy(player_name, &argv[i][2]);
-				strcpy(player_base, &argv[i][2]);
+				game->player_name = &argv[i][2];
+				game->player_base = &argv[i][2];
 				no_begin_screen = TRUE;
 				break;
 			}

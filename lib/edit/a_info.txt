@@ -37,7 +37,6 @@ F:HIDE_TYPE
 F:INSTA_ART
 F:LITE3
 F:LUCK
-F:SEARCH
 a:LIGHT
 D:A small crystal phial, with the light of Earendil's Star contained inside.  
 D:Its light is imperishable, and near it darkness cannot endure.
@@ -116,7 +115,6 @@ F:INT
 F:RES_ACID
 F:RES_COLD
 F:RES_ELEC
-F:SEARCH
 F:SEE_INVIS
 F:WIS
 a:DISP_EVIL
@@ -160,7 +158,6 @@ F:FLY
 F:HIDE_TYPE
 F:IM_FIRE
 F:INSTA_ART
-F:SEARCH
 F:SEE_INVIS
 F:STR
 a:DIM_DOOR
@@ -185,7 +182,6 @@ F:INSTA_ART
 F:INT
 F:RES_DARK
 F:RES_POIS
-F:SEARCH
 F:SEE_INVIS
 F:STEALTH
 F:STR
@@ -742,7 +738,6 @@ F:HIDE_TYPE
 F:INT
 F:RES_DARK
 F:RES_LITE
-F:SEARCH
 F:SPEED
 F:STEALTH
 Z:panic hit
@@ -991,7 +986,6 @@ F:ACTIVATE
 F:HIDE_TYPE
 F:INT
 F:RES_BLIND
-F:SEARCH
 F:SEE_INVIS
 F:WIS
 a:DETECT_ALL
@@ -1019,7 +1013,6 @@ F:RES_DISEN
 F:RES_FEAR
 F:RES_FIRE
 F:RES_POIS
-F:SEARCH
 F:SEE_INVIS
 F:SHOW_MODS
 F:TELEPORT
@@ -1067,7 +1060,6 @@ N:43:of Numenor
 I:33:12:3
 W:60:30:40:50000
 P:0:1d1:0:0:18
-F:ACTIVATE
 F:CHR
 F:DEX
 F:DRAIN_MANA
@@ -1081,10 +1073,8 @@ F:RES_DARK
 F:RES_LITE
 F:RES_SHARDS
 F:RES_SOUND
-F:SEARCH
 F:SEE_INVIS
 F:SPEED
-a:NUMENOR
 D:A crown of massive gold, set with wondrous jewels of thought and warding, 
 D:worn by the kings of ancient Numenor.  Its wearer may go into battle 
 D:always knowing what he faces - unless his own folly blinds him to the 
@@ -1499,7 +1489,6 @@ F:DEX
 F:FREE_ACT
 F:HIDE_TYPE
 F:RES_DARK
-F:SEARCH
 F:SEE_INVIS
 F:SHOW_MODS
 F:SLAY_EVIL
@@ -1675,7 +1664,6 @@ F:LITE1
 F:RANDOM_RES_OR_POWER
 F:RES_FIRE
 F:RES_LITE
-F:SEARCH
 F:SHOW_MODS
 F:SLAY_DEMON
 F:SLAY_EVIL
@@ -1703,7 +1691,6 @@ F:RES_BLIND
 F:RES_ELEC
 F:RES_FEAR
 F:RES_FIRE
-F:SEARCH
 F:SHOW_MODS
 F:SLAY_GIANT
 F:SLAY_ORC
@@ -1729,7 +1716,6 @@ F:RANDOM_RES_OR_POWER
 F:RES_COLD
 F:RES_COLD
 F:RES_DARK
-F:SEARCH
 F:SHOW_MODS
 F:SLAY_DRAGON
 F:SLAY_EVIL
@@ -2303,7 +2289,6 @@ F:INT
 F:RES_FEAR
 F:RES_FIRE
 F:RES_LITE
-F:SEARCH
 F:SEE_INVIS
 F:SHOW_MODS
 F:SLAY_DEMON
@@ -2487,7 +2472,6 @@ F:RES_COLD
 F:RES_ELEC
 F:RES_FEAR
 F:RES_FIRE
-F:SEARCH
 F:SHOW_MODS
 F:SLAY_EVIL
 F:SLAY_GIANT
@@ -2852,7 +2836,6 @@ F:INT
 F:RANDOM_POWER
 F:RES_FIRE
 F:RES_NETHER
-F:SEARCH
 F:SEE_INVIS
 F:SHOW_MODS
 F:SLAY_EVIL
@@ -3100,7 +3083,6 @@ F:RES_ACID
 F:RES_COLD
 F:RES_ELEC
 F:RES_FIRE
-F:SEARCH
 F:SEE_INVIS
 F:SPELL_CONTAIN
 F:SUST_INT
@@ -3285,7 +3267,6 @@ F:ACTIVATE
 F:INFRA
 F:RES_DARK
 F:RES_POIS
-F:SEARCH
 F:STEALTH
 F:WIELD_CAST
 a:DRUEDAIN
@@ -3450,7 +3431,6 @@ P:0:0d0:20:0:0
 F:ACTIVATE
 F:HIDE_TYPE
 F:INFRA
-F:SEARCH
 F:SHOW_MODS
 F:SPECIAL_GENE
 F:XTRA_SHOTS
@@ -3624,7 +3604,6 @@ F:ACTIVATE
 F:COULD2H
 F:DEX
 F:HIDE_TYPE
-F:SEARCH
 F:SHOW_MODS
 F:SLAY_ORC
 f:COULD2H
@@ -3710,58 +3689,6 @@ D:This helm, designed by Petty-Dwarves ages ago to act as the brain of a
 D:long lost project, is made of finest glass.  Its light banishes all secrets, 
 D:and makes audible whispers from the deceased.
 
-
-### Trapping Kits ###
-
-### note prices and rarities may have to be adjusted ###
-
-# The Catapult Trap Set of Ahromarwar 
-
-N:161:of Ahromarwar
-I:46:1:3
-W:20:10:40:20000
-P:0:0d0:25:15:30
-F:AUTOMATIC_99
-F:HIDE_TYPE
-F:STEALTH
-F:XTRA_MIGHT
-D:A trap that can almost never be detected.  Its missiles may be mere pebbles, 
-D:but fired at an incredibly high velocity to penetrate even the toughest 
-D:hide or armour.
-
-
-# The Device Trap Set 'Hanisbroner's Surprise'
-
-N:162:'Hanisbroner's Surprise'
-I:46:6:3
-W:20:20:40:20000
-P:0:0d0:0:0:25
-F:AUTOMATIC_99
-F:HIDE_TYPE
-F:STEALTH
-F:TELEPORT_TO
-F:XTRA_SHOTS
-D:A magical trap, armed with a wand.  Unaccountably, its victims keep 
-D:on coming back for more...
-
-
-# The Bolt Trap Set 'Merlion Karc's Demonbane'
-
-N:163:'Merlion Karc's Demonbane'
-I:46:3:2
-W:20:20:200:20000
-P:0:0d0:17:27:37
-F:HIDE_TYPE
-F:ONLY_DEMON
-F:STEALTH
-F:XTRA_MIGHT
-F:XTRA_SHOTS
-D:A snare set not for animals, or people, but for demons alone, and 
-D:enchanted so that whenever the demon sets foot or claw into the 
-D:(hidden) pentagram, its hide is immediately pierced by many magical 
-D:crossbow bolts.
-
-
 # The Broken Sword 'Narsil'
 
 N:164:'Narsil'
@@ -3846,7 +3773,6 @@ F:RES_COLD
 F:RES_DARK
 F:RES_ELEC
 F:RES_FIRE
-F:SEARCH
 F:STEALTH
 D:Familiar with the secret ways hidden in darkness, this leather cuirass is 
 D:truly more than it appears.
@@ -3868,7 +3794,6 @@ F:RES_ACID
 F:RES_DARK
 F:RES_DISEN
 F:RES_ELEC
-F:SEARCH
 F:SUST_CHR
 F:SUST_DEX
 F:SUST_WIS
@@ -3892,7 +3817,6 @@ F:RES_ACID
 F:RES_DISEN
 F:RES_FIRE
 F:RES_SHARDS
-F:SEARCH
 F:SPELL
 a:CELEBRIMBOR
 D:This once belonged to Celebrimbor, maker of the Rings of Power.  One who 
@@ -3982,7 +3906,6 @@ F:INFRA
 F:RES_ACID
 F:RES_DARK
 F:RES_DISEN
-F:SEARCH
 F:SLAY_DRAGON
 F:SLAY_GIANT
 F:SLAY_ORC
@@ -4118,7 +4041,6 @@ P:4:1d1:5:5:10
 F:CLIMB
 F:HIDE_TYPE
 F:INFRA
-F:SEARCH
 F:TUNNEL
 Z:magic map
 D:A set of iron-shod boots stamped by Gimli's combat prowess, a peerless 
@@ -4253,7 +4175,6 @@ F:INSTA_ART
 F:INT
 F:LITE2
 F:RES_BLIND
-F:SEARCH
 F:SEE_INVIS
 F:WIS
 a:PALANTIR
@@ -4460,7 +4381,6 @@ F:ESP_ORC
 F:ESP_TROLL
 F:INFRA
 F:LUCK
-F:SEARCH
 F:SLAY_ORC
 F:SLAY_TROLL
 F:TUNNEL

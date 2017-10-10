@@ -2,13 +2,13 @@
 
 #include "cave_type.hpp"
 #include "dungeon_flag.hpp"
+#include "game.hpp"
 #include "hooks.hpp"
 #include "lua_bind.hpp"
 #include "monster2.hpp"
 #include "monster_type.hpp"
 #include "object2.hpp"
 #include "player_type.hpp"
-#include "quark.hpp"
 #include "spells3.hpp"
 #include "spells4.hpp"
 #include "tables.hpp"
@@ -19,7 +19,7 @@
 #include "z-rand.hpp"
 
 #include <cassert>
-#include <format.h>
+#include <fmt/format.h>
 
 #define cquest (quest[QUEST_LIBRARY])
 
@@ -59,7 +59,6 @@ void initialize_bookable_spells()
 	push_spell(RECHARGE);
 	push_spell(DISPERSEMAGIC);
 	push_spell(BLINK);
-	push_spell(DISARM);
 	push_spell(TELEPORT);
 	push_spell(SENSEMONSTERS);
 	push_spell(SENSEHIDDEN);
@@ -313,12 +312,12 @@ static void library_quest_fill_book()
 	screen_load();
 }
 
-static bool_ quest_library_gen_hook(void *, void *, void *)
+static bool quest_library_gen_hook(void *, void *, void *)
 {
 	/* Only if player doing this quest */
 	if (p_ptr->inside_quest != QUEST_LIBRARY)
 	{
-		return FALSE;
+		return false;
 	}
 
 	{
@@ -353,46 +352,41 @@ static bool_ quest_library_gen_hook(void *, void *, void *)
 	library_quest_place_nrandom(
 		10, 10, 37, 67, MONSTER_MITHRIL_GOLEM, 1);
 
-	return TRUE;
+	return true;
 }
 
-static bool_ quest_library_stair_hook(void *, void *, void *)
+static bool quest_library_stair_hook(void *, void *, void *)
 {
-	bool_ ret;
-
 	/* only ask this if player about to go up stairs of quest and hasn't won yet */
 	if ((p_ptr->inside_quest != QUEST_LIBRARY) ||
 	    (cquest.status == QUEST_STATUS_COMPLETED))
 	{
-		return FALSE;
+		return false;
 	}
 
 	if (cave[p_ptr->py][p_ptr->px].feat != FEAT_LESS)
 	{
-		return FALSE;
+		return false;
 	}
 
 	/* flush all pending input */
 	flush();
 
 	/* confirm */
-	ret = get_check("Really abandon the quest?");
-
-	/* if yes, then */
-	if (ret == TRUE)
+	if (get_check("Really abandon the quest?"))
 	{
 		/* fail the quest */
 		cquest.status = QUEST_STATUS_FAILED;
-		return FALSE;
+		return false;
 	}
 	else
 	{
 		/* if no, they stay in the quest */
-		return TRUE;
+		return true;
 	}
 }
 
-static bool_ quest_library_monster_death_hook(void *, void *, void *)
+static bool quest_library_monster_death_hook(void *, void *, void *)
 {
 	int i, count = -1;
 
@@ -400,7 +394,7 @@ static bool_ quest_library_monster_death_hook(void *, void *, void *)
 	if ((p_ptr->inside_quest != QUEST_LIBRARY) ||
 	    (cquest.status == QUEST_STATUS_COMPLETED))
 	{
-		return FALSE;
+		return false;
 	}
 
 	/* Count all the enemies left alive */
@@ -422,7 +416,7 @@ static bool_ quest_library_monster_death_hook(void *, void *, void *)
 	}
 
 	/* Normal processing */
-	return FALSE;
+	return false;
 }
 
 void quest_library_building(bool_ *paid, bool_ *recreate)
@@ -457,7 +451,7 @@ void quest_library_building(bool_ *paid, bool_ *recreate)
 				object_type forge;
 				object_type *q_ptr = &forge;
 				object_prep(q_ptr, lookup_kind(TV_BOOK, 61));
-				q_ptr->art_name = quark_add(player_name);
+				q_ptr->artifact_name = game->player_name;
 				q_ptr->found = OBJ_FOUND_REWARD;
 				object_aware(q_ptr);
 				object_known(q_ptr);
@@ -501,7 +495,7 @@ std::string quest_library_describe()
 	return w.str();
 }
 
-bool_ quest_library_init_hook(int q)
+void quest_library_init_hook()
 {
 	/* Only need hooks if the quest is unfinished. */
 	if ((cquest.status >= QUEST_STATUS_UNTAKEN) &&
@@ -517,8 +511,4 @@ bool_ quest_library_init_hook(int q)
 	{
 		quest_library_finalize_book();
 	}
-
-	return FALSE;
 }
-
-#undef print_hook

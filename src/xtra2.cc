@@ -14,8 +14,10 @@
 #include "corrupt.hpp"
 #include "dungeon_info_type.hpp"
 #include "ego_item_type.hpp"
+#include "feature_flag.hpp"
 #include "feature_type.hpp"
 #include "files.hpp"
+#include "game.hpp"
 #include "gods.hpp"
 #include "hook_player_level_in.hpp"
 #include "hook_monster_death_in.hpp"
@@ -27,18 +29,20 @@
 #include "monster3.hpp"
 #include "monster_ego.hpp"
 #include "monster_race.hpp"
+#include "monster_race_flag.hpp"
 #include "monster_type.hpp"
 #include "notes.hpp"
 #include "object1.hpp"
 #include "object2.hpp"
+#include "object_flag.hpp"
 #include "object_kind.hpp"
 #include "options.hpp"
 #include "player_class.hpp"
 #include "player_race.hpp"
+#include "player_race_flag.hpp"
 #include "player_race_mod.hpp"
 #include "player_type.hpp"
 #include "point.hpp"
-#include "quark.hpp"
 #include "randart.hpp"
 #include "skill_type.hpp"
 #include "skills.hpp"
@@ -47,7 +51,6 @@
 #include "stats.hpp"
 #include "store_info_type.hpp"
 #include "tables.hpp"
-#include "trap_type.hpp"
 #include "util.hpp"
 #include "util.h"
 #include "variable.h"
@@ -58,14 +61,16 @@
 #include "xtra1.hpp"
 #include "z-rand.hpp"
 
-#include <type_traits>
-#include <cassert>
-
 #include <boost/algorithm/string/predicate.hpp>
+#include <cassert>
+#include <fmt/format.h>
+#include <type_traits>
+
+
 
 using boost::algorithm::iequals;
 
-static void corrupt_corrupted(void);
+static void corrupt_corrupted();
 
 /*
  * Set "p_ptr->parasite" and "p_ptr->parasite_r_idx"
@@ -130,7 +135,7 @@ bool_ set_parasite(int v, int r)
 	if (!notice) return (FALSE);
 
 	/* Disturb */
-	if (disturb_state) disturb(0);
+	disturb_on_state();
 
 	/* Recalculate bonuses */
 	p_ptr->update |= (PU_BONUS);
@@ -183,8 +188,7 @@ static bool_ set_simple_field(
 		return (FALSE);
 
 	/* Disturb */
-	if (disturb_state)
-		disturb(0);
+	disturb_on_state();
 
 	/* Recalculate bonuses */
 	p_ptr->update |= (PU_BONUS);
@@ -399,17 +403,6 @@ bool_ set_strike(int v)
 }
 
 /*
- * Set "p_ptr->oppose_ld"
- */
-bool_ set_oppose_ld(int v)
-{
-	return set_simple_field(
-		&p_ptr->oppose_ld, v,
-		TERM_WHITE, "You feel protected against light's fluctuation.",
-		TERM_WHITE, "You are no longer protected against light's fluctuation.");
-}
-
-/*
  * Set "p_ptr->oppose_cc"
  */
 bool_ set_oppose_cc(int v)
@@ -421,33 +414,13 @@ bool_ set_oppose_cc(int v)
 }
 
 /*
- * Set "p_ptr->oppose_ss"
- */
-bool_ set_oppose_ss(int v)
-{
-	return set_simple_field(
-		&p_ptr->oppose_ss, v,
-		TERM_WHITE, "You feel protected against the ravages of sound and shards.",
-		TERM_WHITE, "You are no longer protected against the ravages of sound and shards.");
-}
-
-/*
- * Set "p_ptr->oppose_nex"
- */
-bool_ set_oppose_nex(int v)
-{
-	return set_simple_field(
-		&p_ptr->oppose_nex, v,
-		TERM_WHITE, "You feel protected against the strange forces of nexus.",
-		TERM_WHITE, "You are no longer protected against the strange forces of nexus.");
-}
-
-/*
  * Set "p_ptr->tim_mimic", and "p_ptr->mimic_form",
  * notice observable changes
  */
 bool_ set_mimic(int v, int p, int level)
 {
+	auto &s_info = game->s_info;
+
 	bool_ notice = FALSE;
 
 	/* Hack -- Force good values */
@@ -474,7 +447,7 @@ bool_ set_mimic(int v, int p, int level)
 			notice = TRUE;
 			if (p == resolve_mimic_name("Bear"))
 			{
-				s_info[SKILL_BEAR].hidden = TRUE;
+				s_info[SKILL_BEAR].hidden = true;
 				select_default_melee();
 			}
 			p = 0;
@@ -489,7 +462,7 @@ bool_ set_mimic(int v, int p, int level)
 	if (!notice) return (FALSE);
 
 	/* Disturb */
-	if (disturb_state) disturb(0);
+	disturb_on_state();
 
 	/* Redraw title */
 	p_ptr->redraw |= (PR_FRAME);
@@ -786,7 +759,7 @@ bool_ set_fast(int v, int p)
 	if (!notice) return (FALSE);
 
 	/* Disturb */
-	if (disturb_state) disturb(0);
+	disturb_on_state();
 
 	/* Recalculate bonuses */
 	p_ptr->update |= (PU_BONUS);
@@ -964,45 +937,6 @@ bool_ set_protevil(int v)
 }
 
 /*
- * Set "p_ptr->protgood", notice observable changes
- */
-bool_ set_protgood(int v)
-{
-	bool_ notice = set_simple_field(
-		&p_ptr->protgood, v,
-		TERM_WHITE, "You feel safe from good!",
-		TERM_WHITE, "You no longer feel safe from good.");
-
-	if (notice)
-	{
-		/* Handle stuff */
-		handle_stuff();
-	}
-
-	/* Result */
-	return notice;
-}
-
-/*
- * Set "p_ptr->protundead", notice observable changes
- */
-bool_ set_protundead(int v)
-{
-	bool_ notice = set_simple_field(
-		&p_ptr->protundead, v,
-		TERM_WHITE, "You feel safe from undead!",
-		TERM_WHITE, "You no longer feel safe from undead.");
-
-	if (notice) {
-		/* Handle stuff */
-		handle_stuff();
-	}
-
-	/* Result */
-	return notice;
-}
-
-/*
  * Set "p_ptr->set_shadow", notice observable changes
  */
 bool_ set_shadow(int v)
@@ -1128,7 +1062,7 @@ bool_ set_tim_thunder(int v, int p1, int p2)
 	if (!notice) return (FALSE);
 
 	/* Disturb */
-	if (disturb_state) disturb(0);
+	disturb_on_state();
 
 	/* Recalculate bonuses */
 	p_ptr->update |= (PU_BONUS);
@@ -1335,7 +1269,7 @@ bool_ set_tim_regen(int v, int p)
 	if (!notice) return (FALSE);
 
 	/* Disturb */
-	if (disturb_state) disturb(0);
+	disturb_on_state();
 
 	/* Handle stuff */
 	handle_stuff();
@@ -1359,7 +1293,7 @@ bool_ set_stun(int v)
 	/* Hack -- Force good values */
 	v = (v > 10000) ? 10000 : (v < 0) ? 0 : v;
 
-	if (race_flags1_p(PR1_NO_STUN)) v = 0;
+	if (race_flags_p(PR_NO_STUN)) v = 0;
 
 	/* Knocked out */
 	if (p_ptr->stun > 100)
@@ -1439,25 +1373,25 @@ bool_ set_stun(int v)
 			{
 				if (!p_ptr->sustain_int)
 				{
-					(void) do_dec_stat(A_INT, STAT_DEC_NORMAL);
+					do_dec_stat(A_INT, STAT_DEC_NORMAL);
 				}
 				if (!p_ptr->sustain_wis)
 				{
-					(void) do_dec_stat(A_WIS, STAT_DEC_NORMAL);
+					do_dec_stat(A_WIS, STAT_DEC_NORMAL);
 				}
 			}
 			else if (randint(2) == 1)
 			{
 				if (!p_ptr->sustain_int)
 				{
-					(void) do_dec_stat(A_INT, STAT_DEC_NORMAL);
+					do_dec_stat(A_INT, STAT_DEC_NORMAL);
 				}
 			}
 			else
 			{
 				if (!p_ptr->sustain_wis)
 				{
-					(void) do_dec_stat(A_WIS, STAT_DEC_NORMAL);
+					do_dec_stat(A_WIS, STAT_DEC_NORMAL);
 				}
 			}
 		}
@@ -1475,7 +1409,7 @@ bool_ set_stun(int v)
 			/* None */
 		case 0:
 			msg_print("You are no longer stunned.");
-			if (disturb_state) disturb(0);
+			disturb_on_state();
 			break;
 		}
 
@@ -1490,7 +1424,7 @@ bool_ set_stun(int v)
 	if (!notice) return (FALSE);
 
 	/* Disturb */
-	if (disturb_state) disturb(0);
+	disturb_on_state();
 
 	/* Recalculate bonuses */
 	p_ptr->update |= (PU_BONUS);
@@ -1520,7 +1454,7 @@ bool_ set_cut(int v)
 	/* Hack -- Force good values */
 	v = (v > 10000) ? 10000 : (v < 0) ? 0 : v;
 
-	if (race_flags1_p(PR1_NO_CUT)) v = 0;
+	if (race_flags_p(PR_NO_CUT)) v = 0;
 
 	/* Mortal wound */
 	if (p_ptr->cut > 1000)
@@ -1683,7 +1617,7 @@ bool_ set_cut(int v)
 			/* None */
 		case 0:
 			msg_print("You are no longer bleeding.");
-			if (disturb_state) disturb(0);
+			disturb_on_state();
 			break;
 		}
 
@@ -1698,7 +1632,7 @@ bool_ set_cut(int v)
 	if (!notice) return (FALSE);
 
 	/* Disturb */
-	if (disturb_state) disturb(0);
+	disturb_on_state();
 
 	/* Recalculate bonuses */
 	p_ptr->update |= (PU_BONUS);
@@ -1912,7 +1846,7 @@ bool_ set_food(int v)
 	if (!notice) return (FALSE);
 
 	/* Disturb */
-	if (disturb_state) disturb(0);
+	disturb_on_state();
 
 	/* Recalculate bonuses */
 	p_ptr->update |= (PU_BONUS);
@@ -1931,7 +1865,7 @@ bool_ set_food(int v)
 /*
  * Advance experience levels and print experience
  */
-void check_experience(void)
+void check_experience()
 {
 	int gained = 0;
 	bool_ level_corruption = FALSE;
@@ -1983,8 +1917,8 @@ void check_experience(void)
 
 
 	/* Gain levels while possible */
-	while ((p_ptr->lev < PY_MAX_LEVEL) && (p_ptr->lev < max_plev) &&
-	                (p_ptr->exp >= (player_exp[p_ptr->lev - 1] * p_ptr->expfact / 100L)))
+	while ((p_ptr->lev < PY_MAX_LEVEL) &&
+	        (p_ptr->exp >= (player_exp[p_ptr->lev - 1] * p_ptr->expfact / 100L)))
 	{
 		/* Gain a level */
 		p_ptr->lev++;
@@ -1995,15 +1929,12 @@ void check_experience(void)
 		if (p_ptr->lev > p_ptr->max_plv)
 		{
 			p_ptr->max_plv = p_ptr->lev;
-			if ((race_flags1_p(PR1_CORRUPT)) &&
+			if ((race_flags_p(PR_CORRUPT)) &&
 			                (randint(3) == 1))
 			{
 				level_corruption = TRUE;
 			}
 		}
-
-		/* Sound */
-		sound(SOUND_LEVEL);
 
 		/* Message */
 		cmsg_format(TERM_L_GREEN, "Welcome to level %d.", p_ptr->lev);
@@ -2090,7 +2021,7 @@ void check_experience_obj(object_type *o_ptr)
  */
 void gain_exp(s32b amount)
 {
-	if ((p_ptr->max_exp > 0) && (race_flags1_p(PR1_CORRUPT)))
+	if ((p_ptr->max_exp > 0) && (race_flags_p(PR_CORRUPT)))
 	{
 		if ((randint(p_ptr->max_exp) < amount) || (randint(12000000) < amount))
 		{
@@ -2182,13 +2113,13 @@ void place_corpse(monster_type *m_ptr)
 	auto const r_ptr = m_ptr->race();
 
 	/* It has a physical form */
-	if (r_ptr->flags9 & RF9_DROP_CORPSE)
+	if (r_ptr->flags & RF_DROP_CORPSE)
 	{
 		/* Wipe the object */
 		object_prep(i_ptr, lookup_kind(TV_CORPSE, SV_CORPSE_CORPSE));
 
 		/* Unique corpses are unique */
-		if (r_ptr->flags1 & RF1_UNIQUE)
+		if (r_ptr->flags & RF_UNIQUE)
 		{
 			object_aware(i_ptr);
 			i_ptr->name1 = 201;
@@ -2218,13 +2149,13 @@ void place_corpse(monster_type *m_ptr)
 	}
 
 	/* The creature is an animated skeleton. */
-	if (!(r_ptr->flags9 & RF9_DROP_CORPSE) && (r_ptr->flags9 & RF9_DROP_SKELETON))
+	if (!(r_ptr->flags & RF_DROP_CORPSE) && (r_ptr->flags & RF_DROP_SKELETON))
 	{
 		/* Wipe the object */
 		object_prep(i_ptr, lookup_kind(TV_CORPSE, SV_CORPSE_SKELETON));
 
 		/* Unique corpses are unique */
-		if (r_ptr->flags1 & RF1_UNIQUE)
+		if (r_ptr->flags & RF_UNIQUE)
 		{
 			object_aware(i_ptr);
 			i_ptr->name1 = 201;
@@ -2470,14 +2401,13 @@ static void monster_death_gods(int m_idx, monster_type *m_ptr)
  */
 void monster_death(int m_idx)
 {
-	int dump_item = 0;
-	int dump_gold = 0;
+	auto const &d_info = game->edit_data.d_info;
+	auto const &f_info = game->edit_data.f_info;
+	auto &a_info = game->edit_data.a_info;
 
 	monster_type *m_ptr = &m_list[m_idx];
 
 	auto const r_ptr = m_ptr->race();
-
-	bool_ visible = (m_ptr->ml || (r_ptr->flags1 & (RF1_UNIQUE)));
 
 	bool_ create_stairs = FALSE;
 	int force_coin = get_coin_type(r_ptr);
@@ -2525,7 +2455,7 @@ void monster_death(int m_idx)
 	}
 
 	/* If the doppleganger die, the variable must be set accordingly */
-	if (r_ptr->flags9 & RF9_DOPPLEGANGER) doppleganger = 0;
+	if (r_ptr->flags & RF_DOPPLEGANGER) doppleganger = 0;
 
 	/* Need copy of object list since we're going to mutate it */
 	auto const object_idxs(m_ptr->hold_o_idxs);
@@ -2548,9 +2478,6 @@ void monster_death(int m_idx)
 		/* Delete the object */
 		delete_object_idx(this_o_idx);
 
-		if (q_ptr->tval == TV_GOLD) dump_gold++;
-		else dump_item++;
-
 		/* Drop it */
 		drop_near(q_ptr, -1, y, x);
 	}
@@ -2572,31 +2499,41 @@ void monster_death(int m_idx)
 
 		/* Mega-Hack -- Name the sword  */
 
-		q_ptr->art_name = quark_add("'Stormbringer'");
+		q_ptr->artifact_name = "'Stormbringer'";
 		q_ptr->to_h = 16;
 		q_ptr->to_d = 16;
 		q_ptr->ds = 6;
 		q_ptr->dd = 6;
 		q_ptr->pval = 2;
 
-		q_ptr->art_flags1 |= ( TR1_VAMPIRIC | TR1_STR | TR1_CON | TR1_BLOWS );
-		q_ptr->art_flags2 |= ( TR2_FREE_ACT | TR2_HOLD_LIFE |
-		                       TR2_RES_NEXUS | TR2_RES_CHAOS | TR2_RES_NETHER |
-		                       TR2_RES_CONF );  /* No longer resist_disen */
-		q_ptr->art_flags3 |= ( TR3_IGNORE_ACID | TR3_IGNORE_ELEC |
-		                       TR3_IGNORE_FIRE | TR3_IGNORE_COLD);
-		/* Just to be sure */
+		q_ptr->art_flags |=
+			TR_VAMPIRIC |
+			TR_STR |
+			TR_CON |
+			TR_BLOWS |
+			TR_FREE_ACT |
+			TR_HOLD_LIFE |
+			TR_RES_NEXUS |
+			TR_RES_CHAOS |
+			TR_RES_NETHER |
+			TR_RES_CONF |
+			TR_IGNORE_ACID |
+			TR_IGNORE_ELEC |
+			TR_IGNORE_FIRE |
+			TR_IGNORE_COLD |
+			TR_NO_TELE |
+			TR_CURSED |
+			TR_HEAVY_CURSE;
 
-		q_ptr->art_flags3 |= TR3_NO_TELE;  /* How's that for a downside? */
-
-		/* For game balance... */
-		q_ptr->art_flags3 |= (TR3_CURSED | TR3_HEAVY_CURSE);
 		q_ptr->ident |= IDENT_CURSED;
-
 		if (randint(2) == 1)
-			q_ptr->art_flags3 |= (TR3_DRAIN_EXP);
+		{
+			q_ptr->art_flags |= TR_DRAIN_EXP;
+		}
 		else
-			q_ptr->art_flags3 |= (TR3_AGGRAVATE);
+		{
+			q_ptr->art_flags |= TR_AGGRAVATE;
+		}
 
 		q_ptr->found = OBJ_FOUND_MONSTER;
 		q_ptr->found_aux1 = m_ptr->r_idx;
@@ -2651,7 +2588,7 @@ void monster_death(int m_idx)
 	else if (strstr(r_ptr->name, "Unmaker"))
 	{
 		int flg = PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL;
-		(void)project(m_idx, 6, y, x, 100, GF_CHAOS, flg);
+		project(m_idx, 6, y, x, 100, GF_CHAOS, flg);
 	}
 	/* Pink horrors are replaced with 2 Blue horrors */
 	else if (strstr(r_ptr->name, "ink horror"))
@@ -2679,7 +2616,7 @@ void monster_death(int m_idx)
 	}
 
 	/* Mega-Hack -- drop "winner" treasures */
-	else if (r_ptr->flags1 & (RF1_DROP_CHOSEN))
+	else if (r_ptr->flags & RF_DROP_CHOSEN)
 	{
 		if (strstr(r_ptr->name, "Morgoth, Lord of Darkness"))
 		{
@@ -2741,7 +2678,7 @@ void monster_death(int m_idx)
 			/* Drop it in the dungeon */
 			drop_near(q_ptr, -1, y, x);
 		}
-		else if (r_ptr->flags7 & RF7_NAZGUL)
+		else if (r_ptr->flags & RF_NAZGUL)
 		{
 			/* Get local object */
 			q_ptr = &forge;
@@ -2758,7 +2695,7 @@ void monster_death(int m_idx)
 			create_artifact(q_ptr, TRUE, FALSE);
 
 			/* Save the inscription */
-			q_ptr->art_name = quark_add(format("of %s", r_ptr->name));
+			q_ptr->artifact_name = fmt::format("of {}", r_ptr->name);
 
 			q_ptr->found = OBJ_FOUND_MONSTER;
 			q_ptr->found_aux1 = m_ptr->r_idx;
@@ -2778,7 +2715,7 @@ void monster_death(int m_idx)
 			{
 				if (a_info[a_idx].cur_num == 0)
 				{
-					artifact_type *a_ptr = &a_info[a_idx];
+					auto a_ptr = &a_info[a_idx];
 
 					/* Get local object */
 					q_ptr = &forge;
@@ -2806,7 +2743,7 @@ void monster_death(int m_idx)
 					q_ptr->weight = a_ptr->weight;
 
 					/* Hack -- acquire "cursed" flag */
-					if (a_ptr->flags3 & (TR3_CURSED)) q_ptr->ident |= (IDENT_CURSED);
+					if (a_ptr->flags & TR_CURSED) q_ptr->ident |= (IDENT_CURSED);
 
 					random_artifact_resistance(q_ptr);
 
@@ -2826,7 +2763,7 @@ void monster_death(int m_idx)
 	}
 
 	/* Hack - the protected monsters must be advanged */
-	else if (r_ptr->flags9 & RF9_WYRM_PROTECT)
+	else if (r_ptr->flags & RF_WYRM_PROTECT)
 	{
 		int xx = x, yy = y;
 		int attempts = 100;
@@ -2964,13 +2901,6 @@ void monster_death(int m_idx)
 	if ((!force_coin) && (magik(10 + get_skill_scale(SKILL_PRESERVATION, 75))) && (!(m_ptr->mflag & MFLAG_NO_DROP)))
 		place_corpse(m_ptr);
 
-	/* Take note of any dropped treasure */
-	if (visible && (dump_item || dump_gold))
-	{
-		/* Take notes on treasure */
-		lore_treasure(m_idx, dump_item, dump_gold);
-	}
-
 	/* Create a magical staircase */
 	if (create_stairs && (dun_level < d_info[dungeon_type].maxdepth))
 	{
@@ -2978,7 +2908,7 @@ void monster_death(int m_idx)
 		{
 			for (int j = -1; j <= 1; j++)
 			{
-				if (!(f_info[cave[y + j][x + i].feat].flags1 & FF1_PERMANENT))
+				if (!(f_info[cave[y + j][x + i].feat].flags & FF_PERMANENT))
 				{
 					cave_set_feat(y + j, x + i, d_info[dungeon_type].floor1);
 				}
@@ -3051,7 +2981,7 @@ bool_ mon_take_hit(int m_idx, int dam, bool_ *fear, cptr note)
 	if (health_who == m_idx) p_ptr->redraw |= (PR_FRAME);
 
 	/* Some mosnters are immune to death */
-	if (r_ptr->flags7 & RF7_NO_DEATH) return FALSE;
+	if (r_ptr->flags & RF_NO_DEATH) return FALSE;
 
 	/* Wake it up */
 	m_ptr->csleep = 0;
@@ -3075,7 +3005,7 @@ bool_ mon_take_hit(int m_idx, int dam, bool_ *fear, cptr note)
 		/* Extract monster name */
 		monster_desc(m_name, m_ptr, 0);
 
-		if ((r_ptr->flags7 & RF7_DG_CURSE) && (randint(2) == 1))
+		if ((r_ptr->flags & RF_DG_CURSE) && (randint(2) == 1))
 		{
 			int curses = 2 + randint(5);
 
@@ -3089,7 +3019,7 @@ bool_ mon_take_hit(int m_idx, int dam, bool_ *fear, cptr note)
 			while (--curses);
 		}
 
-		if (r_ptr->flags2 & (RF2_CAN_SPEAK))
+		if (r_ptr->flags & RF_CAN_SPEAK)
 		{
 			char line_got[80];
 			/* Dump a message */
@@ -3097,10 +3027,6 @@ bool_ mon_take_hit(int m_idx, int dam, bool_ *fear, cptr note)
 			get_rnd_line("mondeath.txt", line_got);
 			msg_format("%^s says: %s", m_name, line_got);
 		}
-
-
-		/* Make a sound */
-		sound(SOUND_KILL);
 
 		/* Death by Missile/Spell attack */
 		if (note)
@@ -3115,10 +3041,10 @@ bool_ mon_take_hit(int m_idx, int dam, bool_ *fear, cptr note)
 		}
 
 		/* Death by Physical attack -- non-living monster */
-		else if ((r_ptr->flags3 & (RF3_DEMON)) ||
-		                (r_ptr->flags3 & (RF3_UNDEAD)) ||
-		                (r_ptr->flags2 & (RF2_STUPID)) ||
-		                (r_ptr->flags3 & (RF3_NONLIVING)) ||
+		else if ((r_ptr->flags & RF_DEMON) ||
+		                (r_ptr->flags & RF_UNDEAD) ||
+		                (r_ptr->flags & RF_STUPID) ||
+		                (r_ptr->flags & RF_NONLIVING) ||
 		                (strchr("Evg", r_ptr->d_char)))
 		{
 			cmsg_format(TERM_L_RED, "You have destroyed %s.", m_name);
@@ -3159,15 +3085,12 @@ bool_ mon_take_hit(int m_idx, int dam, bool_ *fear, cptr note)
 
 		if (!note)
 		{
-			object_type *o_ptr;
-			u32b f1, f2, f3, f4, f5, esp;
-
 			/* Access the weapon */
-			o_ptr = &p_ptr->inventory[INVEN_WIELD];
-			object_flags(o_ptr, &f1, &f2, &f3, &f4, &f5, &esp);
+			object_type *o_ptr = &p_ptr->inventory[INVEN_WIELD];
+			auto const flags = object_flags(o_ptr);
 
 			/* Can the weapon gain levels ? */
-			if ((o_ptr->k_idx) && (f4 & TR4_LEVELS))
+			if ((o_ptr->k_idx) && (flags & TR_LEVELS))
 			{
 				/* Give some experience for the kill */
 				const int new_exp = ((long)r_ptr->mexp * m_ptr->level) / (div * 2);
@@ -3179,7 +3102,7 @@ bool_ mon_take_hit(int m_idx, int dam, bool_ *fear, cptr note)
 		}
 
 		/* When the player kills a Unique, it stays dead */
-		if (r_ptr->flags1 & (RF1_UNIQUE))
+		if (r_ptr->flags & RF_UNIQUE)
 		{
 			r_ptr->max_num = 0;
 		}
@@ -3188,7 +3111,7 @@ bool_ mon_take_hit(int m_idx, int dam, bool_ *fear, cptr note)
 		monster_death(m_idx);
 
 		/* Eru doesn't appreciate good monster death */
-		if (r_ptr->flags3 & RF3_GOOD)
+		if (r_ptr->flags & RF_GOOD)
 		{
 			inc_piety(GOD_ERU, -7 * m_ptr->level);
 			inc_piety(GOD_MANWE, -10 * m_ptr->level);
@@ -3200,7 +3123,7 @@ bool_ mon_take_hit(int m_idx, int dam, bool_ *fear, cptr note)
 		}
 
 		/* Manwe appreciate evil monster death */
-		if (r_ptr->flags3 & RF3_EVIL)
+		if (r_ptr->flags & RF_EVIL)
 		{
 			int inc = std::max(1, m_ptr->level / 2);
 
@@ -3216,7 +3139,7 @@ bool_ mon_take_hit(int m_idx, int dam, bool_ *fear, cptr note)
 			if (praying_to(GOD_TULKAS))
 			{
 				inc_piety(GOD_TULKAS, inc / 2);
-				if (r_ptr->flags3 & RF3_DEMON)
+				if (r_ptr->flags & RF_DEMON)
 				{
 					inc_piety(GOD_TULKAS, inc);
 				}
@@ -3224,7 +3147,7 @@ bool_ mon_take_hit(int m_idx, int dam, bool_ *fear, cptr note)
 		}
 
 		/* Yavanna likes when corruption is destroyed */
-		if ((r_ptr->flags3 & RF3_NONLIVING) || (r_ptr->flags3 & RF3_DEMON) || (r_ptr->flags3 & RF3_UNDEAD))
+		if ((r_ptr->flags & RF_NONLIVING) || (r_ptr->flags & RF_DEMON) || (r_ptr->flags & RF_UNDEAD))
 		{
 			int inc = std::max(1, m_ptr->level / 2);
 			inc_piety(GOD_YAVANNA, inc);
@@ -3237,12 +3160,12 @@ bool_ mon_take_hit(int m_idx, int dam, bool_ *fear, cptr note)
 			inc_piety(GOD_YAVANNA, -inc);
 
 			/* Killing animals in her name is a VERY bad idea */
-			if (r_ptr->flags3 & RF3_ANIMAL)
+			if (r_ptr->flags & RF_ANIMAL)
 				inc_piety(GOD_YAVANNA, -(inc * 3));
 		}
 
 		/* SHould we absorb its soul? */
-		if (p_ptr->absorb_soul && (!(r_ptr->flags3 & RF3_UNDEAD)) && (!(r_ptr->flags3 & RF3_NONLIVING)))
+		if (p_ptr->absorb_soul && (!(r_ptr->flags & RF_UNDEAD)) && (!(r_ptr->flags & RF_NONLIVING)))
 		{
 			msg_print("You absorb the life of the dying soul.");
 			hp_player(1 + (m_ptr->level / 2) + get_skill_scale(SKILL_NECROMANCY, 40));
@@ -3252,7 +3175,7 @@ bool_ mon_take_hit(int m_idx, int dam, bool_ *fear, cptr note)
 		* XXX XXX XXX Mega-Hack -- Remove random quest rendered
 		* impossible
 		*/
-		if (r_ptr->flags1 & (RF1_UNIQUE))
+		if (r_ptr->flags & RF_UNIQUE)
 		{
 			int i;
 
@@ -3280,7 +3203,7 @@ bool_ mon_take_hit(int m_idx, int dam, bool_ *fear, cptr note)
 		}
 
 		/* Make note of unique kills */
-		if (r_ptr->flags1 & RF1_UNIQUE)
+		if (r_ptr->flags & RF_UNIQUE)
 		{
 			char note[80];
 
@@ -3291,13 +3214,10 @@ bool_ mon_take_hit(int m_idx, int dam, bool_ *fear, cptr note)
 		}
 
 		/* Recall even invisible uniques or winners */
-		if (m_ptr->ml || (r_ptr->flags1 & (RF1_UNIQUE)))
+		if (m_ptr->ml || (r_ptr->flags & RF_UNIQUE))
 		{
 			/* Count kills this life */
 			if (r_ptr->r_pkills < MAX_SHORT) r_ptr->r_pkills++;
-
-			/* Count kills in all lives */
-			if (r_ptr->r_tkills < MAX_SHORT) r_ptr->r_tkills++;
 
 			/* Hack -- Auto-recall */
 			monster_race_track(m_ptr->r_idx, m_ptr->ego);
@@ -3335,7 +3255,7 @@ void get_screen_size(int *wid_p, int *hgt_p)
  * Calculates current boundaries
  * Called below.
  */
-static void panel_bounds(void)
+static void panel_bounds()
 {
 	int wid, hgt;
 
@@ -3418,7 +3338,7 @@ bool_ change_panel(int dy, int dx)
  *
  * The map is reprinted if necessary, and "TRUE" is returned.
  */
-void verify_panel(void)
+void verify_panel()
 {
 	int y = p_ptr->py;
 	int x = p_ptr->px;
@@ -3457,7 +3377,7 @@ void verify_panel(void)
 	if (max_pcol_min < 0) max_pcol_min = 0;
 
 	/* An option: center on player */
-	if (center_player)
+	if (options->center_player)
 	{
 		/* Center vertically */
 		prow_min = y - panel_hgt;
@@ -3531,7 +3451,10 @@ void verify_panel(void)
 	panel_col_min = pcol_min;
 
 	/* Hack -- optional disturb on "panel change" */
-	if (disturb_panel && !center_player) disturb(0);
+	if (options->disturb_panel && !options->center_player)
+	{
+		disturb();
+	}
 
 	/* Recalculate the boundaries */
 	panel_bounds();
@@ -3550,7 +3473,7 @@ void verify_panel(void)
 /*
  * Map resizing whenever the main term changes size
  */
-void resize_map(void)
+void resize_map()
 {
 	/* Only if the dungeon exists */
 	if (!character_dungeon) return;
@@ -3599,7 +3522,7 @@ void resize_map(void)
 /*
  * Redraw a term when it is resized
  */
-void resize_window(void)
+void resize_window()
 {
 	/* Only if the dungeon exists */
 	if (!character_dungeon) return;
@@ -3638,9 +3561,9 @@ static cptr look_mon_desc(int m_idx)
 	/* Determine if the monster is "living" (vs "undead") */
 	monster_type *m_ptr = &m_list[m_idx];
 	auto const r_ptr = m_ptr->race();
-	if (r_ptr->flags3 & (RF3_UNDEAD)) living = FALSE;
-	if (r_ptr->flags3 & (RF3_DEMON)) living = FALSE;
-	if (r_ptr->flags3 & (RF3_NONLIVING)) living = FALSE;
+	if (r_ptr->flags & RF_UNDEAD) living = FALSE;
+	if (r_ptr->flags & RF_DEMON) living = FALSE;
+	if (r_ptr->flags & RF_NONLIVING) living = FALSE;
 	if (strchr("Egv", r_ptr->d_char)) living = FALSE;
 
 
@@ -3696,6 +3619,8 @@ static cptr look_mon_desc(int m_idx)
  */
 static bool target_able(int m_idx)
 {
+	auto const &r_info = game->edit_data.r_info;
+
 	monster_type *m_ptr = &m_list[m_idx];
 
 	/* Monster must be alive */
@@ -3714,7 +3639,7 @@ static bool target_able(int m_idx)
 	if (is_friend(m_ptr) > 0) return (FALSE);
 
 	/* Honor flag */
-	if (r_info[m_ptr->r_idx].flags7 & RF7_NO_TARGET) return (FALSE);
+	if (r_info[m_ptr->r_idx].flags & RF_NO_TARGET) return (FALSE);
 
 	/* XXX XXX XXX Hack -- Never target trappers */
 	/* if (CLEAR_ATTR && (CLEAR_CHAR)) return (FALSE); */
@@ -3731,7 +3656,7 @@ static bool target_able(int m_idx)
  *
  * We return TRUE if the target is "okay" and FALSE otherwise.
  */
-bool_ target_okay(void)
+bool_ target_okay()
 {
 	/* Accept stationary targets */
 	if (target_who < 0) return (TRUE);
@@ -3812,6 +3737,9 @@ static s16b target_pick(point p, int dy, int dx, std::vector<point> const &point
  */
 static bool_ target_set_accept(int y, int x)
 {
+	auto const &r_info = game->edit_data.r_info;
+	auto const &f_info = game->edit_data.f_info;
+
 	/* Player grid is always interesting */
 	if ((y == p_ptr->py) && (x == p_ptr->px)) return (TRUE);
 
@@ -3824,7 +3752,7 @@ static bool_ target_set_accept(int y, int x)
 	cave_type *c_ptr = &cave[y][x];
 
 	/* Visible monsters */
-	if (c_ptr->m_idx && c_ptr->m_idx < max_r_idx)
+	if (c_ptr->m_idx && c_ptr->m_idx < static_cast<int>(r_info.size()))
 	{
 
 		monster_type *m_ptr = &m_list[c_ptr->m_idx];
@@ -3848,9 +3776,6 @@ static bool_ target_set_accept(int y, int x)
 	/* Interesting memorized features */
 	if (c_ptr->info & (CAVE_MARK))
 	{
-		/* Traps are interesting */
-		if (c_ptr->info & (CAVE_TRDT)) return (TRUE);
-
 		/* Hack -- Doors are boring */
 		if (c_ptr->feat == FEAT_OPEN) return (FALSE);
 		if (c_ptr->feat == FEAT_BROKEN) return (FALSE);
@@ -3858,7 +3783,7 @@ static bool_ target_set_accept(int y, int x)
 		                (c_ptr->feat <= FEAT_DOOR_TAIL)) return (FALSE);
 
 		/* Accept 'naturally' interesting features */
-		if (f_info[c_ptr->feat].flags1 & FF1_NOTICE) return (TRUE);
+		if (f_info[c_ptr->feat].flags & FF_NOTICE) return (TRUE);
 	}
 
 	/* Nope */
@@ -3968,6 +3893,12 @@ bool_ target_object(int y, int x, int mode, cptr info, bool_ *boring,
  */
 static int target_set_aux(int y, int x, int mode, cptr info)
 {
+	auto const &d_info = game->edit_data.d_info;
+	auto const &st_info = game->edit_data.st_info;
+	auto const &wf_info = game->edit_data.wf_info;
+	auto const &f_info = game->edit_data.f_info;
+	auto const &k_info = game->edit_data.k_info;
+
 	cave_type *c_ptr = &cave[y][x];
 
 	cptr s1, s2, s3;
@@ -4032,7 +3963,7 @@ static int target_set_aux(int y, int x, int mode, cptr info)
 			auto const r_ptr = m_ptr->race();
 
 			/* Mimics special treatment -- looks like an object */
-			if ((r_ptr->flags9 & RF9_MIMIC) && (m_ptr->csleep))
+			if ((r_ptr->flags & RF_MIMIC) && (m_ptr->csleep))
 			{
 				/* Acquire object */
 				object_type *o_ptr = &o_list[m_ptr->mimic_o_idx()];
@@ -4080,7 +4011,7 @@ static int target_set_aux(int y, int x, int mode, cptr info)
 							Term_save();
 
 							/* Recall on screen */
-							screen_roff(m_ptr->r_idx, m_ptr->ego, 0);
+							screen_roff(m_ptr->r_idx, m_ptr->ego);
 
 							/* Hack -- Complete the prompt (again) */
 							Term_addstr( -1, TERM_WHITE, format("  [r,%s]", info));
@@ -4155,8 +4086,8 @@ static int target_set_aux(int y, int x, int mode, cptr info)
 					s1 = "It is ";
 
 					/* Hack -- take account of gender */
-					if (r_ptr->flags1 & (RF1_FEMALE)) s1 = "She is ";
-					else if (r_ptr->flags1 & (RF1_MALE)) s1 = "He is ";
+					if (r_ptr->flags & RF_FEMALE) s1 = "She is ";
+					else if (r_ptr->flags & RF_MALE) s1 = "He is ";
 
 					/* Use a preposition */
 					s2 = "carrying ";
@@ -4230,34 +4161,6 @@ static int target_set_aux(int y, int x, int mode, cptr info)
 			}
 		}
 
-		/* Actual traps */
-		if ((c_ptr->info & (CAVE_TRDT)) && c_ptr->t_idx)
-		{
-			cptr name = "a trap", s4;
-
-			/* Name trap */
-			if (t_info[c_ptr->t_idx].ident)
-			{
-				s4 = format("(%s)", t_info[c_ptr->t_idx].name);
-			}
-			else
-			{
-				s4 = "an unknown trap";
-			}
-
-			/* Display a message */
-			sprintf(out_val, "%s%s%s%s [%s]", s1, s2, s3, name, s4);
-			prt(out_val, 0, 0);
-			move_cursor_relative(y, x);
-			query = inkey();
-
-			/* Stop on everything but "return" */
-			if ((query != '\r') && (query != '\n')) break;
-
-			/* Repeat forever */
-			continue;
-		}
-
 		/* Feature (apply "mimic") */
 		if (c_ptr->mimic)
 		{
@@ -4278,7 +4181,7 @@ static int target_set_aux(int y, int x, int mode, cptr info)
 		/* Terrain feature if needed */
 		if (boring || (feat >= FEAT_GLYPH))
 		{
-			cptr name;
+			std::string name;
 
 			/* Hack -- special handling for building doors */
 			if (feat == FEAT_SHOP)
@@ -4320,10 +4223,11 @@ static int target_set_aux(int y, int x, int mode, cptr info)
 
 			if (p_ptr->wild_mode && (feat == FEAT_TOWN))
 			{
+				auto const &wilderness = game->wilderness;
+				auto const &wf = wf_info[wilderness(x, y).feat];
+
 				s3 = "";
-				name = format("%s(%s)",
-					      wf_info[wild_map[y][x].feat].name,
-					      wf_info[wild_map[y][x].feat].text);
+				name = fmt::format("{}({})", wf.name, wf.text);
 			}
 
 			if ((feat == FEAT_FOUNTAIN) && (c_ptr->info & CAVE_IDNT))
@@ -4347,12 +4251,12 @@ static int target_set_aux(int y, int x, int mode, cptr info)
 			/* Display a message */
 			if (!wizard)
 			{
-				sprintf(out_val, "%s%s%s%s [%s]", s1, s2, s3, name, info);
+				sprintf(out_val, "%s%s%s%s [%s]", s1, s2, s3, name.c_str(), info);
 			}
 			else
 			{
 				sprintf(out_val, "%s%s%s%s [%s] (%d:%d:%d)",
-				        s1, s2, s3, name, info,
+					s1, s2, s3, name.c_str(), info,
 				        c_ptr->feat, c_ptr->mimic, c_ptr->special);
 			}
 			prt(out_val, 0, 0);
@@ -4429,8 +4333,6 @@ bool_ target_set(int mode)
 
 	char info[80];
 
-	cave_type *c_ptr;
-
 	int screen_wid, screen_hgt;
 	int panel_wid, panel_hgt;
 
@@ -4465,7 +4367,7 @@ bool_ target_set(int mode)
 			x = points[m].x();
 
 			/* Access */
-			c_ptr = &cave[y][x];
+			cave_type *c_ptr = &cave[y][x];
 
 			/* Allow target */
 			if (target_able(c_ptr->m_idx))
@@ -4631,9 +4533,6 @@ bool_ target_set(int mode)
 		/* Arbitrary grids */
 		else
 		{
-			/* Access */
-			c_ptr = &cave[y][x];
-
 			/* Default prompt */
 			strcpy(info, "q,t,p,m,+,-,'dir'");
 
@@ -4825,7 +4724,10 @@ bool_ get_aim_dir(int *dp)
 	dir = command_dir;
 
 	/* Hack -- auto-target if requested */
-	if (use_old_target && target_okay()) dir = 5;
+	if (options->use_old_target && target_okay())
+	{
+		dir = 5;
+	}
 
 	/* Ask until satisfied */
 	while (!dir)
@@ -5072,19 +4974,22 @@ void set_grace(s32b v)
 
 static bool_ test_object_wish(char *name, object_type *o_ptr, object_type *forge, const char *what)
 {
-	int i, j, jb, save_aware;
+	auto &k_info = game->edit_data.k_info;
+	auto const &e_info = game->edit_data.e_info;
+
+	int save_aware;
 	char buf[200];
 
 	/* try all objects, this *IS* a very ugly and slow method :( */
-	for (i = 0; i < max_k_idx; i++)
+	for (std::size_t i = 0; i < k_info.size(); i++)
 	{
-		object_kind *k_ptr = &k_info[i];
+		auto k_ptr = &k_info[i];
 
 		o_ptr = forge;
 
 		if (!k_ptr->name) continue;
-		if (k_ptr->flags3 & TR3_NORM_ART) continue;
-		if (k_ptr->flags3 & TR3_INSTA_ART) continue;
+		if (k_ptr->flags & TR_NORM_ART) continue;
+		if (k_ptr->flags & TR_INSTA_ART) continue;
 		if (k_ptr->tval == TV_GOLD) continue;
 
 		object_prep(o_ptr, i);
@@ -5104,9 +5009,9 @@ static bool_ test_object_wish(char *name, object_type *o_ptr, object_type *forge
 		   (o_ptr->tval == TV_ROD_MAIN && strstr(name, "rod of")))
 		{
 			/* try all ego */
-			for (j = max_e_idx - 1; j >= 0; j--)
+			for (std::size_t j = 0; j < e_info.size(); j++)
 			{
-				ego_item_type *e_ptr = &e_info[j];
+				auto e_ptr = &e_info[j];
 				bool_ ok = FALSE;
 
 				if (j && !e_ptr->name) continue;
@@ -5132,9 +5037,9 @@ static bool_ test_object_wish(char *name, object_type *o_ptr, object_type *forge
 				}
 
 				/* try all ego */
-				for (jb = max_e_idx - 1; jb >= 0; jb--)
+				for (std::size_t jb = 0; jb < e_info.size(); jb++)
 				{
-					ego_item_type *eb_ptr = &e_info[jb];
+					auto eb_ptr = &e_info[jb];
 					bool_ ok = FALSE;
 
 					if (jb && !eb_ptr->name) continue;
@@ -5225,13 +5130,17 @@ static void clean_wish_name(char *buf, char *name)
 /*
  * Allow the player to make a wish
  */
-void make_wish(void)
+void make_wish()
 {
-	char buf[200], name[200], *mname;
-	int i, j, mstatus = MSTATUS_ENEMY;
+	auto const &re_info = game->edit_data.re_info;
+	auto const &r_info = game->edit_data.r_info;
+
+	char name[200], *mname;
+	int mstatus = MSTATUS_ENEMY;
 	object_type forge, *o_ptr = &forge;
 
 	/* Make an empty string */
+	char buf[200];
 	buf[0] = 0;
 
 	/* Ask for the wish */
@@ -5283,16 +5192,20 @@ void make_wish(void)
 		else mstatus = MSTATUS_PET;
 		mname = name + 10;
 	}
-	else mname = name;
-	for (i = 1; i < max_r_idx; i++)
+	else
 	{
-		monster_race *r_ptr = &r_info[i];
+		mname = name;
+	}
+
+	for (std::size_t i = 1; i < r_info.size(); i++)
+	{
+		auto r_ptr = &r_info[i];
 
 		if (!r_ptr->name) continue;
 
-		if (r_ptr->flags9 & RF9_SPECIAL_GENE) continue;
-		if (r_ptr->flags9 & RF9_NEVER_GENE) continue;
-		if (r_ptr->flags1 & RF1_UNIQUE) continue;
+		if (r_ptr->flags & RF_SPECIAL_GENE) continue;
+		if (r_ptr->flags & RF_NEVER_GENE) continue;
+		if (r_ptr->flags & RF_UNIQUE) continue;
 
 		sprintf(buf, "%s", r_ptr->name);
 		strlower(buf);
@@ -5300,9 +5213,9 @@ void make_wish(void)
 		if (strstr(mname, buf))
 		{
 			/* try all ego */
-			for (j = max_re_idx - 1; j >= 0; j--)
+			for (std::size_t j = 0; j < re_info.size(); j++)
 			{
-				monster_ego *re_ptr = &re_info[j];
+				auto re_ptr = &re_info[j];
 
 				if (j && !re_ptr->name) continue;
 
@@ -5323,6 +5236,7 @@ void make_wish(void)
 				{
 					sprintf(buf, "%s", r_ptr->name);
 				}
+
 				strlower(buf);
 
 				if (iequals(mname, buf))
@@ -5338,7 +5252,9 @@ void make_wish(void)
 
 					/* Create the monster */
 					if (place_monster_one(wy, wx, i, j, FALSE, mstatus))
+					{
 						msg_print("Your wish becomes truth!");
+					}
 
 					/* Don't search any more */
 					return;
@@ -5353,7 +5269,7 @@ void make_wish(void)
  * Corrupted have a 1/3 chance of losing a mutation each time this is called, 
  * assuming they have any in the first place
  */
-static void corrupt_corrupted(void)
+static void corrupt_corrupted()
 {
 	if (magik(45))
 	{
@@ -5371,54 +5287,25 @@ static void corrupt_corrupted(void)
 /*
  * Change to an other subrace
  */
-void switch_subrace(int racem, bool_ copy_old)
+void switch_subrace(std::size_t racem, bool_ copy_old)
 {
-	if ((racem < 0) && (racem >= max_rmp_idx)) return;
+	auto &race_mod_info = game->edit_data.race_mod_info;
+
+	assert(racem < race_mod_info.size());
 
 	/* If we switch to the saved subrace, we copy over the old subrace data */
 	if (copy_old && (racem == SUBRACE_SAVE))
 	{
-		// This code is very reliant on the race_mod_info
-		// elements being simple PODs, in particular the
-		// text pointers being *unmanaged* owned pointers.
-		static_assert(std::is_pod<player_race_mod>::value,
-			      "This code needs reworking");
-		// Keep references to owned pointers.
-		auto old_title = race_mod_info[SUBRACE_SAVE].title;
-		auto old_desc = race_mod_info[SUBRACE_SAVE].desc;
+		// Keep old description
+		auto old_desc = race_mod_info[SUBRACE_SAVE].description;
 		// Copy everything
 		race_mod_info[SUBRACE_SAVE] = race_mod_info[p_ptr->pracem];
-		// "Undo" copy of title and description (since they're *owned* pointers)
-		race_mod_info[SUBRACE_SAVE].title = old_title;
-		race_mod_info[SUBRACE_SAVE].desc = old_desc;
-		// Replace subrace title with the title currently held by player.
-		set_subrace_title(&race_mod_info[SUBRACE_SAVE], race_mod_info[p_ptr->pracem].title);
+		// Reinstate description
+		race_mod_info[SUBRACE_SAVE].description = old_desc;
 	}
 
 	p_ptr->pracem = racem;
 	rmp_ptr = &race_mod_info[p_ptr->pracem];
-}
-
-void set_subrace_title(player_race_mod *rmp_ptr, cptr name)
-{
-	// Free old title.
-	free(rmp_ptr->title);
-	// Allocate copy of new title.
-	rmp_ptr->title = strdup(name);
-	if (!rmp_ptr->title) {
-		abort();
-	}
-}
-
-void set_subrace_description(player_race_mod *rmp_ptr, cptr desc)
-{
-	// Free old description
-	free(rmp_ptr->desc);
-	// Allocate copy of new description.
-	rmp_ptr->desc = strdup(desc);
-	if (!rmp_ptr->desc) {
-		abort();
-	}
 }
 
 /*
@@ -5427,10 +5314,10 @@ void set_subrace_description(player_race_mod *rmp_ptr, cptr desc)
 void do_rebirth()
 {
 	/* Experience factor */
-	p_ptr->expfact = rp_ptr->r_exp + rmp_ptr->r_exp + cp_ptr->c_exp;
+	p_ptr->expfact = rp_ptr->ps.exp + rmp_ptr->ps.exp + cp_ptr->ps.exp;
 
 	/* Hitdice */
-	p_ptr->hitdie = rp_ptr->r_mhp + rmp_ptr->r_mhp + cp_ptr->c_mhp;
+	p_ptr->hitdie = rp_ptr->ps.mhp + rmp_ptr->ps.mhp + cp_ptr->ps.mhp;
 
 	/* Recalc HP */
 	do_cmd_rerate();

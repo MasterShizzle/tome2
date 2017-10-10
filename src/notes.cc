@@ -10,6 +10,7 @@
 #include "notes.hpp"
 
 #include "files.hpp"
+#include "game.hpp"
 #include "player_class.hpp"
 #include "player_type.hpp"
 #include "util.hpp"
@@ -20,14 +21,14 @@
 /*
  * Show the notes file on the screen
  */
-void show_notes_file(void)
+void show_notes_file()
 {
 	char basename[13];
 	char buf[1024];
 	char caption[10 + 13];
 
 	/* Hack -- extract first 8 characters of name and append an extension */
-	(void)strnfmt(basename, sizeof(basename), "%.8s.nte", player_base);
+	strnfmt(basename, sizeof(basename), "%.8s.nte", game->player_base.c_str());
 	basename[sizeof(basename) - 1] = '\0';
 
 	/* Build the path */
@@ -47,14 +48,14 @@ void show_notes_file(void)
  * Output a string to the notes file.
  * This is the only function that references that file.
  */
-void output_note(char *final_note)
+void output_note(const char *final_note)
 {
 	FILE *fff;
 	char basename[13];
 	char buf[1024];
 
 	/* Hack -- extract first 8 characters of name and append an extension */
-	(void)strnfmt(basename, sizeof(basename), "%.8s.nte", player_base);
+	strnfmt(basename, sizeof(basename), "%.8s.nte", game->player_base.c_str());
 	basename[sizeof(basename) - 1] = '\0';
 
 	/* Build the path */
@@ -113,6 +114,8 @@ void add_note(char *note, char code)
  */
 void add_note_type(int note_number)
 {
+	auto const &class_info = game->edit_data.class_info;
+
 	char true_long_day[50];
 	char buf[1024];
 	time_t ct = time((time_t*)0);
@@ -142,7 +145,7 @@ void add_note_type(int note_number)
 			        "%s %s\n"
 			        "Born on %s\n"
 			        "================================================\n",
-			        player_name, player, true_long_day);
+				game->player_name.c_str(), player, true_long_day);
 
 			break;
 		}
@@ -153,7 +156,7 @@ void add_note_type(int note_number)
 			        "%s slew Morgoth on %s\n"
 			        "Long live %s!\n"
 			        "================================================",
-				player_name, true_long_day, player_name);
+				game->player_name.c_str(), true_long_day, game->player_name.c_str());
 
 			break;
 		}

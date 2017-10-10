@@ -2,6 +2,9 @@
 
 #include "h-basic.h"
 
+#include <string>
+#include <vector>
+
 /**
  * Player information during the birth process.
  */
@@ -16,14 +19,11 @@ struct birther
 
 	byte god;
 	s32b grace;
-	s32b god_favor;
 
 	s32b au;
 
 	s16b stat[6];
 	s16b luck;
-
-	char history[4][60];
 
 	bool_ quick_ok;
 };
